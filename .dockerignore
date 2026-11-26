@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+reports/
+*.pdf
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+start_portal.bat

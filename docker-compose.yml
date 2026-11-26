@@ -1,0 +1,14 @@
+services:
+  portal:
+    build: .
+    container_name: mf-report-portal
+    restart: unless-stopped
+    environment:
+      PORTAL_USER: ${PORTAL_USER:-admin}
+      PORTAL_PASSWORD: ${PORTAL_PASSWORD:?Set PORTAL_PASSWORD in .env}
+      TZ: Asia/Kolkata
+    ports:
+      # Only reachable from this server; publish it through an HTTPS reverse proxy (see README).
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./reports:/app/reports

@@ -1,0 +1,16 @@
+# Client reports and secrets never go into git
+reports/
+*.pdf
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

@@ -1,0 +1,9 @@
+{
+  "client_name": "Client Name",
+  "capital": 1000000,
+  "sip_amount": 5000,
+  "funds": [
+    {"scheme_name": "Exact scheme name as listed on mfapi.in", "weight_pct": 60},
+    {"scheme_name": "Another exact scheme name", "weight_pct": 40}
+  ]
+}

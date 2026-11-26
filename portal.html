@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quantify Capital · MF Report Portal</title>
+<style>
+  :root { --navy:#0B1F3A; --navy2:#1B355E; --gold:#C9A24B; --gold-d:#8A6A22; --gold-l:#F4ECD9;
+          --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; --line:#E7E1D2; --card:#FAF8F3;
+          --bad:#B3261E; --bad-l:#FBEAE8; --good:#1B6B34; --good-l:#E8F3EA; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Segoe UI", system-ui, -apple-system, sans-serif; color:var(--ink);
+         background:#F5F3EE; font-size:14px; }
+  header { background:var(--navy); color:#fff; border-bottom:4px solid var(--gold); padding:18px 32px 16px; }
+  .brand { color:var(--gold); letter-spacing:.28em; font-weight:700; font-size:12px; }
+  header h1 { font-family:Georgia, serif; font-weight:400; margin:6px 0 2px; font-size:26px; }
+  header p { margin:0; color:#C9D3E2; font-size:13px; }
+  main { max-width:1160px; margin:24px auto 48px; padding:0 24px; display:grid;
+         grid-template-columns:minmax(0, 1fr) 330px; gap:24px; align-items:start; }
+  @media (max-width: 900px) { main { grid-template-columns:1fr; } }
+  .card { background:#fff; border:1px solid var(--line); border-radius:8px; padding:20px 22px; }
+  h2 { font-family:Georgia, serif; color:var(--navy); font-size:17px; margin:0 0 14px;
+       padding-left:10px; border-left:4px solid var(--gold); }
+  label { display:block; font-size:12px; color:var(--ink2); text-transform:uppercase;
+          letter-spacing:.06em; margin-bottom:5px; }
+  input { width:100%; font:inherit; padding:9px 11px; border:1px solid #D5CFBF; border-radius:6px; background:#fff; }
+  input:focus { outline:2px solid var(--gold); outline-offset:0; border-color:var(--gold); }
+  .row3 { display:grid; grid-template-columns:2fr 1fr 1fr; gap:14px; margin-bottom:20px; }
+  .hint { font-size:12px; color:var(--muted); margin-top:4px; min-height:16px; }
+  .funds-head, .fund { display:grid; grid-template-columns:28px minmax(0,1fr) 110px 34px; gap:10px; align-items:center; }
+  .funds-head { font-size:12px; color:var(--ink2); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+  .fund { margin-bottom:8px; align-items:start; }
+  .num { color:var(--muted); font-weight:600; text-align:center; padding-top:10px; }
+  .fund .del { height:40px; }
+  .sbox { position:relative; }
+  .sugg { position:absolute; z-index:10; left:0; right:0; top:100%; margin-top:2px; background:#fff;
+          border:1px solid #D5CFBF; border-radius:6px; box-shadow:0 6px 18px rgba(11,31,58,.14);
+          max-height:300px; overflow:auto; display:none; }
+  .sugg div { padding:8px 11px; cursor:pointer; border-bottom:1px solid #F0ECE2; font-size:13px; }
+  .sugg div:last-child { border-bottom:0; }
+  .sugg div:hover, .sugg div.active { background:var(--gold-l); }
+  .sugg .none { color:var(--muted); cursor:default; }
+  .sugg .none:hover { background:#fff; }
+  .matched { font-size:11px; color:var(--good); margin-top:2px; min-height:14px; }
+  .matched.no { color:var(--muted); }
+  .matched.bad { color:var(--bad); }
+  .er { margin-top:6px; padding:10px 12px; background:#FFF8E6; border:1px solid #EBD9A6; border-radius:6px; }
+  .er p { margin:0 0 8px; font-size:12.5px; color:#6B5310; line-height:1.45; }
+  .er .erow { display:flex; align-items:center; gap:10px; }
+  .er label { margin:0; white-space:nowrap; color:#6B5310; }
+  .er input { max-width:120px; }
+  button { font:inherit; cursor:pointer; border-radius:6px; }
+  .del { border:1px solid var(--line); background:#fff; color:var(--ink2); height:38px; font-size:18px; line-height:1; }
+  .del:hover { background:var(--bad-l); color:var(--bad); border-color:#EBC4BF; }
+  .bar { display:flex; justify-content:space-between; align-items:center; margin-top:10px; gap:12px; flex-wrap:wrap; }
+  .add { border:1px dashed var(--gold); background:var(--gold-l); color:var(--gold-d); padding:8px 14px; font-weight:600; }
+  .add:disabled { opacity:.5; cursor:not-allowed; }
+  .total { font-weight:600; padding:6px 12px; border-radius:20px; background:var(--bad-l); color:var(--bad); }
+  .total.ok { background:var(--good-l); color:var(--good); }
+  .go { margin-top:22px; width:100%; background:var(--navy); color:#fff; border:0; padding:13px;
+        font-size:15px; font-weight:600; letter-spacing:.02em; border-bottom:3px solid var(--gold); }
+  .go:hover { background:var(--navy2); }
+  .go:disabled { opacity:.6; cursor:wait; }
+  .result { margin-top:18px; border-radius:8px; padding:14px 16px; display:none; white-space:pre-wrap;
+            font-family:Consolas, "Cascadia Mono", monospace; font-size:13px; line-height:1.55; }
+  .result.ok { display:block; background:var(--good-l); border:1px solid #BFDCC6; }
+  .result.err { display:block; background:var(--bad-l); border:1px solid #EBC4BF; color:#6E1712; }
+  .result.wait { display:block; background:var(--card); border:1px solid var(--line); color:var(--ink2);
+                 font-family:inherit; }
+  .open { display:inline-block; margin-top:10px; background:var(--navy); color:#fff; text-decoration:none;
+          padding:8px 14px; border-radius:6px; font-family:"Segoe UI", sans-serif; font-weight:600; }
+  .reports { list-style:none; margin:0; padding:0; }
+  .reports li { border-bottom:1px solid #F0ECE2; padding:9px 0; }
+  .reports li:last-child { border-bottom:0; }
+  .reports a { color:var(--navy); text-decoration:none; font-weight:600; word-break:break-word; }
+  .reports a:hover { text-decoration:underline; }
+  .reports .meta { font-size:12px; color:var(--muted); }
+  .empty { color:var(--muted); font-size:13px; }
+  .rules { font-size:12.5px; color:var(--ink2); line-height:1.55; padding-left:18px; margin:0; }
+  .side { display:flex; flex-direction:column; gap:24px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">QUANTIFY CAPITAL</div>
+  <h1>MF Report Portal</h1>
+  <p>5-year portfolio backtest vs Nifty 50 · live NAVs from mfapi.in · 2-page A4 PDF</p>
+</header>
+
+<main>
+  <section class="card">
+    <h2>New Report</h2>
+    <form id="form" autocomplete="off">
+      <div class="row3">
+        <div>
+          <label for="client">Client name</label>
+          <input id="client" required placeholder="e.g. Rahul Sharma">
+        </div>
+        <div>
+          <label for="capital">Lumpsum capital (₹)</label>
+          <input id="capital" type="number" min="1" step="any" required placeholder="1000000">
+          <div class="hint" id="capHint"></div>
+        </div>
+        <div>
+          <label for="sip">Monthly SIP (₹)</label>
+          <input id="sip" type="number" min="1" step="any" placeholder="optional">
+          <div class="hint" id="sipHint">Blank = 0.5% of capital</div>
+        </div>
+      </div>
+
+      <div class="funds-head"><span></span><span>Scheme (exact mfapi.in name — start typing to search)</span><span>Weight %</span><span></span></div>
+      <div id="funds"></div>
+      <div class="bar">
+        <button type="button" class="add" id="addBtn">+ Add fund</button>
+        <span class="total" id="total">Total 0%</span>
+      </div>
+
+      <button type="submit" class="go" id="goBtn">Generate Report</button>
+    </form>
+    <div class="result" id="result"></div>
+  </section>
+
+  <aside class="side">
+    <section class="card">
+      <h2>Reports</h2>
+      <ul class="reports" id="reports"><li class="empty">Loading…</li></ul>
+    </section>
+    <section class="card">
+      <h2>Rules</h2>
+      <ul class="rules">
+        <li>1 to 8 funds; weights must total exactly 100.</li>
+        <li>Each scheme name must match exactly one scheme on mfapi.in. Pick it from the suggestions.</li>
+        <li>Period: today minus 5 years to today. Lumpsum on day 1 plus 60 monthly SIPs.</li>
+        <li>Benchmark: UTI Nifty 50 Index Fund, Direct Growth, on identical cash flows.</li>
+        <li>A fund with under 5 years of NAV history needs an expected return (% p.a.). It is used instead of NAVs and noted in the PDF.</li>
+        <li>Report generation takes about 15–30 seconds (live NAV download).</li>
+      </ul>
+    </section>
+  </aside>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const MAX_FUNDS = 8;
+const inr = (n) => "₹" + Math.round(n).toLocaleString("en-IN");
+
+function fundRow() {
+  const row = document.createElement("div");
+  row.className = "fund";
+  row.innerHTML = `
+    <span class="num"></span>
+    <div class="sbox">
+      <input class="scheme" placeholder="Search scheme, e.g. parag parikh flexi direct growth" required>
+      <div class="sugg"></div>
+      <div class="matched no"></div>
+      <div class="er" hidden>
+        <p class="er-note"></p>
+        <div class="erow"><label>Expected return (% p.a.)</label>
+          <input class="exp" type="number" step="any" min="-99" max="100" placeholder="e.g. 12"></div>
+      </div>
+    </div>
+    <input class="weight" type="number" min="0" step="any" placeholder="%" required>
+    <button type="button" class="del" title="Remove fund">×</button>`;
+  const input = row.querySelector(".scheme"), box = row.querySelector(".sugg"), matched = row.querySelector(".matched");
+  const er = row.querySelector(".er"), exp = row.querySelector(".exp");
+  let timer = null, items = [], active = -1, checked = "";
+
+  function close() { box.style.display = "none"; active = -1; }
+  function setShort(info) {
+    if (info && info.short) {
+      row.querySelector(".er-note").textContent =
+        `This fund has NAV history only since ${info.first_nav} (under 5 years), so its returns are not calculated. ` +
+        `Enter the expected annual return to use; the PDF will show it as an assumption.`;
+      er.hidden = false; exp.required = true;
+    } else { er.hidden = true; exp.required = false; exp.value = ""; }
+  }
+  async function check() {
+    const name = input.value.trim();
+    if (!name || name === checked) return;
+    checked = name;
+    matched.textContent = "Checking NAV history…"; matched.className = "matched no";
+    try {
+      const r = await fetch("/api/scheme_info?name=" + encodeURIComponent(name)).then((x) => x.json());
+      if (input.value.trim() !== name) return;
+      if (r.ok) {
+        matched.textContent = r.short ? `✓ Found on mfapi.in · NAV since ${r.first_nav}` : "✓ Found on mfapi.in · 5+ years of NAV";
+        matched.className = "matched"; setShort(r);
+      } else {
+        matched.textContent = "Not an exact mfapi.in name. Pick one from the suggestions.";
+        matched.className = "matched bad"; setShort(null);
+      }
+    } catch { matched.textContent = ""; checked = ""; }
+  }
+  function pick(name) { input.value = name; close(); check(); }
+  function render() {
+    box.innerHTML = "";
+    if (!items.length) { const d = document.createElement("div"); d.className = "none"; d.textContent = "No matching scheme"; box.appendChild(d); }
+    items.forEach((it, i) => {
+      const d = document.createElement("div");
+      d.textContent = it.name;
+      if (i === active) d.className = "active";
+      d.addEventListener("mousedown", (e) => { e.preventDefault(); pick(it.name); });
+      box.appendChild(d);
+    });
+    box.style.display = "block";
+  }
+  input.addEventListener("input", () => {
+    matched.textContent = ""; matched.className = "matched no"; checked = ""; setShort(null);
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 3) { close(); return; }
+    timer = setTimeout(async () => {
+      try {
+        const r = await fetch("/api/schemes?q=" + encodeURIComponent(q)).then((x) => x.json());
+        if (input.value.trim() !== q) return;
+        items = r.ok ? r.results : []; active = -1; render();
+      } catch { close(); }
+    }, 250);
+  });
+  input.addEventListener("keydown", (e) => {
+    if (box.style.display !== "block" || !items.length) return;
+    if (e.key === "ArrowDown") { active = Math.min(active + 1, items.length - 1); render(); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { active = Math.max(active - 1, 0); render(); e.preventDefault(); }
+    else if (e.key === "Enter" && active >= 0) { pick(items[active].name); e.preventDefault(); }
+    else if (e.key === "Escape") close();
+  });
+  input.addEventListener("blur", () => setTimeout(() => { close(); check(); }, 150));
+  row.querySelector(".weight").addEventListener("input", updateTotal);
+  row.querySelector(".del").addEventListener("click", () => {
+    if ($("funds").children.length > 1) { row.remove(); renumber(); updateTotal(); }
+  });
+  return row;
+}
+
+function renumber() {
+  [...$("funds").children].forEach((r, i) => (r.querySelector(".num").textContent = i + 1));
+  $("addBtn").disabled = $("funds").children.length >= MAX_FUNDS;
+}
+function updateTotal() {
+  const t = [...document.querySelectorAll(".weight")].reduce((s, w) => s + (parseFloat(w.value) || 0), 0);
+  const r = Math.round(t * 1e6) / 1e6;
+  $("total").textContent = `Total ${r}%`;
+  $("total").className = "total" + (r === 100 ? " ok" : "");
+}
+function addFund() {
+  if ($("funds").children.length >= MAX_FUNDS) return;
+  $("funds").appendChild(fundRow()); renumber();
+}
+$("addBtn").addEventListener("click", addFund);
+addFund(); addFund();
+
+function updateHints() {
+  const c = parseFloat($("capital").value);
+  $("capHint").textContent = c > 0 ? inr(c) : "";
+  const s = parseFloat($("sip").value);
+  if (s > 0) $("sipHint").textContent = inr(s) + " × 60 months";
+  else if (c > 0) $("sipHint").textContent = "Blank = " + inr(Math.round(c * 0.005 / 100) * 100) + " (0.5% of capital)";
+  else $("sipHint").textContent = "Blank = 0.5% of capital";
+}
+$("capital").addEventListener("input", updateHints);
+$("sip").addEventListener("input", updateHints);
+
+async function loadReports(highlight) {
+  const ul = $("reports");
+  try {
+    const r = await fetch("/api/reports").then((x) => x.json());
+    ul.innerHTML = "";
+    if (!r.reports.length) { ul.innerHTML = '<li class="empty">No reports yet.</li>'; return; }
+    for (const rep of r.reports) {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.href = "/reports/" + encodeURIComponent(rep.name); a.target = "_blank"; a.textContent = rep.name;
+      const m = document.createElement("div"); m.className = "meta"; m.textContent = rep.size_kb + " KB" + (rep.name === highlight ? " · just generated" : "");
+      li.append(a, m); ul.appendChild(li);
+    }
+  } catch { ul.innerHTML = '<li class="empty">Could not load reports.</li>'; }
+}
+loadReports();
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const res = $("result");
+  const payload = { client_name: $("client").value, capital: Number($("capital").value), funds: [] };
+  if ($("sip").value.trim() !== "") payload.sip_amount = Number($("sip").value);
+  for (const r of $("funds").children) {
+    const fund = { scheme_name: r.querySelector(".scheme").value, weight_pct: Number(r.querySelector(".weight").value) };
+    if (!r.querySelector(".er").hidden) fund.expected_return_pct = Number(r.querySelector(".exp").value);
+    payload.funds.push(fund);
+  }
+  $("goBtn").disabled = true; $("goBtn").textContent = "Generating…";
+  res.className = "result wait"; res.textContent = "Fetching live NAVs from mfapi.in, computing and building the PDF. This takes about 15–30 seconds…";
+  try {
+    const r = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json());
+    if (r.ok) {
+      res.className = "result ok"; res.textContent = r.lines.join("\n") + "\n";
+      const a = document.createElement("a"); a.className = "open"; a.target = "_blank";
+      a.href = "/reports/" + encodeURIComponent(r.file); a.textContent = "Open PDF";
+      res.appendChild(a);
+      loadReports(r.file);
+    } else {
+      res.className = "result err"; res.textContent = r.error;
+    }
+  } catch (err) {
+    res.className = "result err"; res.textContent = "ERROR: Could not reach the portal server. Is portal.py still running?";
+  } finally {
+    $("goBtn").disabled = false; $("goBtn").textContent = "Generate Report";
+  }
+});
+</script>
+</body>
+</html>
