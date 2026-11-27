@@ -475,7 +475,9 @@ def findings(R: dict) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- main
-def run(raw, out_dir: Path, today: date, keep_html: bool = False) -> list[str]:
+def run(raw, out_dir: Path, today: date, keep_html: bool = False, client_render: bool = False) -> list[str]:
+    """client_render=True saves <stem>.json (page variants) for the browser to fit and print,
+    instead of printing a PDF with headless Chrome on this machine."""
     v = validate(raw)
     R = compute(v, today)
     reconcile(v, R)
@@ -486,13 +488,21 @@ def run(raw, out_dir: Path, today: date, keep_html: bool = False) -> list[str]:
               "today": today, "report_no": f"QC-{today:%Y}-{today:%m%d}", "file_stem": stem})
     R["findings"] = findings(R)
     pdf = out_dir / f"{stem}.pdf"
-    try:
-        rr.render_pdf(R, pdf, keep_html=(out_dir / f"{stem}.html") if keep_html else None)
-    except rr.RenderError as e:
-        fail(str(e))
-    except PermissionError:
-        fail(f"Cannot save {pdf.name} because the file is open in another program. "
-             f"Fix: Close the PDF and generate again.")
+    if client_render:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        tmp = out_dir / f".{stem}.json.tmp"
+        tmp.write_text(json.dumps(rr.build_variants(R), ensure_ascii=False), encoding="utf-8")
+        tmp.replace(out_dir / f"{stem}.json")
+        file_line = stem
+    else:
+        try:
+            rr.render_pdf(R, pdf, keep_html=(out_dir / f"{stem}.html") if keep_html else None)
+        except rr.RenderError as e:
+            fail(str(e))
+        except PermissionError:
+            fail(f"Cannot save {pdf.name} because the file is open in another program. "
+                 f"Fix: Close the PDF and generate again.")
+        file_line = pdf.name
 
     flags = []
     short = [f for f in R["funds"] if f["short"]]
@@ -507,7 +517,7 @@ def run(raw, out_dir: Path, today: date, keep_html: bool = False) -> list[str]:
         f"Portfolio CAGR: {P['xirr'] * 100:.2f}% vs Nifty 50: {B['xirr'] * 100:.2f}% | "
         f"Alpha: ₹{R['alpha_rs'] / 100000:.2f} L",
         f"Flags: {'; '.join(flags) if flags else 'None'}",
-        f"File: {pdf.name}",
+        f"File: {file_line}",
     ]
 
 

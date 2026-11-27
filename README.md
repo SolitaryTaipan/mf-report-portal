@@ -8,6 +8,17 @@ Nifty 50) defined in [system.md](system.md). NAVs are fetched live from mfapi.in
 - `report_render.py`: report layout (HTML) and PDF printing via headless Chromium/Chrome
 - `system.md`: the report rules
 
+### Browser-side PDF rendering (default for the portal)
+
+The portal no longer needs Chrome on the server. For each report it saves `reports/<name>.json`,
+which holds every page at each card density (0, 1 and 2). Opening `/reports/<name>` loads
+`report_view.html`. The viewer measures each page in the user's browser, keeps the largest
+density that fits on one A4 sheet (the same rule as `render_pdf`), and shows the 2-page report.
+**Download PDF** opens the browser's print dialog: choose "Save as PDF", paper A4, margins none.
+The Inter font is served from `static/fonts/` (SIL OFL), so the report looks the same on every
+device. To use server-side headless-Chrome printing instead, set `RENDER_MODE=server`. The
+`report_engine.py` CLI still prints PDFs with Chrome.
+
 Generated PDFs are saved in `reports/`. That folder, `*.pdf` and `.env` are git-ignored, because
 they hold client data and secrets. Keep this repository **private**.
 

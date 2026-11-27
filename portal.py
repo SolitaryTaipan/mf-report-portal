@@ -31,10 +31,15 @@ import report_engine as eng
 ROOT = Path(__file__).resolve().parent
 REPORTS = ROOT / "reports"
 PAGE = ROOT / "portal.html"
+VIEW = ROOT / "report_view.html"
+FONTS = ROOT / "static" / "fonts"
 MAX_BODY = 100_000
 AUTH_USER = os.environ.get("PORTAL_USER", "admin")
 AUTH_PASS = os.environ.get("PORTAL_PASSWORD", "")
 LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
+# Default: the user's browser lays out and prints the PDF, so the server needs no Chrome.
+# RENDER_MODE=server restores the old headless-Chrome PDF printing.
+CLIENT_RENDER = os.environ.get("RENDER_MODE", "client").lower() != "server"
 
 _generate_lock = threading.Lock()       # one report at a time
 _schemes: list[dict] | None = None      # scheme list for search suggestions only
@@ -71,10 +76,21 @@ def scheme_info(name: str) -> dict:
 
 
 def list_reports() -> list[dict]:
+    """Browser-rendered reports (<stem>.json, opened at /reports/<stem>) plus any older PDFs."""
     if not REPORTS.exists():
         return []
-    files = sorted(REPORTS.glob("*.pdf"), key=lambda p: p.stat().st_mtime, reverse=True)
-    return [{"name": p.name, "size_kb": round(p.stat().st_size / 1024)} for p in files[:50]]
+    files = sorted([*REPORTS.glob("*.json"), *REPORTS.glob("*.pdf")], key=lambda p: p.stat().st_mtime, reverse=True)
+    return [{"name": p.stem if p.suffix == ".json" else p.name,
+             "kind": "html" if p.suffix == ".json" else "pdf",
+             "size_kb": round(p.stat().st_size / 1024)} for p in files[:50]]
+
+
+def _report_file(name: str, suffix: str) -> Path | None:
+    """Exact existing file names only, so no path traversal."""
+    if not REPORTS.exists():
+        return None
+    allowed = {p.name: p for p in REPORTS.glob("*" + suffix)}
+    return allowed.get(name + suffix if suffix == ".json" else name)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -84,8 +100,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        for k, v in (extra or {}).items():
+        extra = extra or {}
+        if "Cache-Control" not in extra:
+            self.send_header("Cache-Control", "no-store")
+        for k, v in extra.items():
             self.send_header(k, v)
         self.end_headers()
         self.wfile.write(body)
@@ -135,14 +153,28 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "error": f"ERROR: {e}"})
         elif path == "/api/reports":
             self._json({"ok": True, "reports": list_reports()})
-        elif path.startswith("/reports/"):
-            name = unquote(path[len("/reports/"):])
-            allowed = {p.name for p in REPORTS.glob("*.pdf")} if REPORTS.exists() else set()
-            if name not in allowed:                      # no path traversal: exact file names only
+        elif path == "/api/report":                      # page variants for report_view.html
+            f = _report_file(parse_qs(url.query).get("name", [""])[0], ".json")
+            if not f:
                 self._send(404, b"Not found", "text/plain")
                 return
-            self._send(200, (REPORTS / name).read_bytes(), "application/pdf",
-                       {"Content-Disposition": f"inline; filename*=UTF-8''{path[len('/reports/'):]}"})
+            self._send(200, f.read_bytes(), "application/json; charset=utf-8")
+        elif path.startswith("/static/fonts/"):
+            name = path[len("/static/fonts/"):]
+            fonts = {p.name: p for p in FONTS.glob("*.woff2")} if FONTS.exists() else {}
+            if name not in fonts:
+                self._send(404, b"Not found", "text/plain")
+                return
+            self._send(200, fonts[name].read_bytes(), "font/woff2", {"Cache-Control": "private, max-age=31536000"})
+        elif path.startswith("/reports/"):
+            name = unquote(path[len("/reports/"):])
+            if name.endswith(".pdf") and (f := _report_file(name, ".pdf")):
+                self._send(200, f.read_bytes(), "application/pdf",
+                           {"Content-Disposition": f"inline; filename*=UTF-8''{path[len('/reports/'):]}"})
+            elif _report_file(name, ".json"):
+                self._send(200, VIEW.read_bytes(), "text/html; charset=utf-8")
+            else:
+                self._send(404, b"Not found", "text/plain")
         else:
             self._send(404, b"Not found", "text/plain")
 
@@ -163,7 +195,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         with _generate_lock:
             try:
-                lines = eng.run(raw, REPORTS, date.today())
+                lines = eng.run(raw, REPORTS, date.today(), client_render=CLIENT_RENDER)
             except eng.EngineError as e:
                 self._json({"ok": False, "error": f"ERROR: {e}"})
                 return

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=840">
+<title>Report</title>
+<style id="qc-ui">
+  /* Viewer chrome only; the report's own CSS is added after fitting. Hidden when printing. */
+  #qcbar { position:fixed; top:0; left:0; right:0; z-index:1000; display:flex; align-items:center; gap:14px;
+           padding:10px 18px; background:#0B1F3A; color:#fff; border-bottom:3px solid #C9A24B;
+           font:14px/1.4 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  #qcbar .t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #qcbar .s { color:#C9D3E2; font-size:12.5px; }
+  #qcbar button { font:inherit; font-weight:600; cursor:pointer; border:0; border-radius:6px; padding:8px 16px;
+                  background:#C9A24B; color:#0B1F3A; }
+  #qcbar button:disabled { opacity:.5; cursor:wait; }
+  #qcbar a { color:#C9D3E2; font-size:13px; }
+  #qcmsg { margin:90px auto; max-width:640px; padding:16px 18px; border-radius:8px; background:#F5F3EE;
+           border:1px solid #E7E1D2; font:14px/1.5 "Segoe UI", system-ui, sans-serif; color:#52514e; white-space:pre-wrap; }
+  #qcmsg.err { background:#FBEAE8; border-color:#EBC4BF; color:#6E1712; }
+  #qcfit { position:absolute; left:-10000px; top:0; width:230mm; height:400mm; border:0; visibility:hidden; }
+  @media screen {
+    body.qc-ready { background:#E5E7EB; padding:64px 0 24px; }
+    body.qc-ready .page { margin:0 auto 18px; background:#fff; box-shadow:0 2px 14px rgba(15,23,42,.18); }
+  }
+  @media print { #qcbar, #qcmsg, #qcfit { display:none !important; } }
+</style>
+</head>
+<body>
+<div id="qcbar">
+  <div class="t"><b id="qctitle">Report</b><div class="s" id="qcstatus">Preparing…</div></div>
+  <a href="/">← Portal</a>
+  <button id="qcpdf" disabled>Download PDF</button>
+</div>
+<div id="qcmsg">Laying out the report on A4 pages…</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const name = decodeURIComponent(location.pathname.replace(/^\/reports\//, ""));
+  const FONTS = ["Regular:400", "SemiBold:600", "Bold:700", "ExtraBold:800"].map((s) => {
+    const [f, w] = s.split(":");
+    return `@font-face{font-family:Inter;font-style:normal;font-weight:${w};font-display:block;` +
+           `src:url("/static/fonts/Inter-${f}.woff2") format("woff2");}`;
+  }).join("");
+  const PX_PER_MM = 96 / 25.4;
+  const LIMIT = 296 * PX_PER_MM + 1;   // .page has min-height 296mm: taller means it spills onto a 2nd sheet
+
+  const fail = (msg) => { $("qcmsg").className = "err"; $("qcmsg").textContent = msg; $("qcstatus").textContent = "Failed"; };
+
+  // Lay one page out in an off-screen frame at true A4 width and report its height.
+  function measure(css, pageHtml) {
+    return new Promise((resolve) => {
+      const f = document.createElement("iframe");
+      f.id = "qcfit";
+      f.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${FONTS}${css}</style></head><body>${pageHtml}</body></html>`;
+      f.onload = async () => {
+        const doc = f.contentDocument;
+        try { await doc.fonts.load("400 10px Inter"); await doc.fonts.load("800 10px Inter"); await doc.fonts.ready; } catch {}
+        const h = doc.querySelector(".page").getBoundingClientRect().height;
+        f.remove();
+        resolve(h);
+      };
+      document.body.appendChild(f);
+    });
+  }
+
+  async function fit(css, variants, label) {
+    for (let d = 0; d < variants.length; d++) {
+      if (await measure(css, variants[d]) <= LIMIT) return d;
+    }
+    throw new Error(`Page ${label} does not fit on one A4 page even at the smallest card size.`);
+  }
+
+  async function main() {
+    let R;
+    try {
+      const r = await fetch("/api/report?name=" + encodeURIComponent(name));
+      if (!r.ok) throw new Error();
+      R = await r.json();
+    } catch { return fail("This report could not be loaded. It may have been deleted."); }
+    document.title = R.title;
+    $("qctitle").textContent = R.title;
+    let d1, d2;
+    try { [d1, d2] = [await fit(R.css, R.p1, 1), await fit(R.css, R.p2, 2)]; }
+    catch (e) { return fail(e.message); }
+
+    const st = document.createElement("style");
+    st.textContent = FONTS + R.css;
+    document.head.insertBefore(st, $("qc-ui"));    // viewer chrome rules keep priority
+    $("qcmsg").remove();
+    document.body.insertAdjacentHTML("beforeend", R.p1[d1] + R.p2[d2]);
+    document.body.classList.add("qc-ready");
+    $("qcstatus").textContent = "In the print dialog choose “Save as PDF”, paper A4, margins none.";
+    $("qcpdf").disabled = false;
+  }
+
+  $("qcpdf").addEventListener("click", () => window.print());
+  main();
+})();
+</script>
+</body>
+</html>

@@ -270,7 +270,8 @@ async function loadReports(highlight) {
       const li = document.createElement("li");
       const a = document.createElement("a");
       a.href = "/reports/" + encodeURIComponent(rep.name); a.target = "_blank"; a.textContent = rep.name;
-      const m = document.createElement("div"); m.className = "meta"; m.textContent = rep.size_kb + " KB" + (rep.name === highlight ? " · just generated" : "");
+      const kind = rep.kind === "pdf" ? "PDF · " : "";
+      const m = document.createElement("div"); m.className = "meta"; m.textContent = kind + rep.size_kb + " KB" + (rep.name === highlight ? " · just generated" : "");
       li.append(a, m); ul.appendChild(li);
     }
   } catch { ul.innerHTML = '<li class="empty">Could not load reports.</li>'; }
@@ -288,13 +289,13 @@ $("form").addEventListener("submit", async (e) => {
     payload.funds.push(fund);
   }
   $("goBtn").disabled = true; $("goBtn").textContent = "Generating…";
-  res.className = "result wait"; res.textContent = "Fetching live NAVs from mfapi.in, computing and building the PDF. This takes about 15–30 seconds…";
+  res.className = "result wait"; res.textContent = "Fetching live NAVs from mfapi.in, and computing. This takes about 15–30 seconds…";
   try {
     const r = await fetch("/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json());
     if (r.ok) {
       res.className = "result ok"; res.textContent = r.lines.join("\n") + "\n";
       const a = document.createElement("a"); a.className = "open"; a.target = "_blank";
-      a.href = "/reports/" + encodeURIComponent(r.file); a.textContent = "Open PDF";
+      a.href = "/reports/" + encodeURIComponent(r.file); a.textContent = "Open report / Download PDF";
       res.appendChild(a);
       loadReports(r.file);
     } else {

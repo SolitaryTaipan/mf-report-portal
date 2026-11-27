@@ -672,6 +672,26 @@ def build_html(R: dict, d1: int, d2: int, only: int | None = None) -> str:
             f'<body>{page1 if only != 2 else ""}{page2 if only != 1 else ""}</body></html>')
 
 
+# --------------------------------------------------------------------------- client-side render
+def _body(html_text: str) -> str:
+    return html_text.split("<body>", 1)[1].rsplit("</body>", 1)[0]
+
+
+def build_variants(R: dict) -> dict:
+    """Everything the browser needs to fit and print the report itself (report_view.html):
+    each page at every density. The browser measures them, keeps the largest density that
+    stays on one A4 sheet (the same rule as render_pdf) and prints with Save as PDF."""
+    return {
+        "title": R["file_stem"],
+        "css": CSS,
+        "densities": list(DENSITIES),
+        # only=1 drops the page-break class; put it back, since these pages are combined later.
+        "p1": [_body(build_html(R, d, 0, only=1)).replace('<div class="page  d', '<div class="page p1 d', 1)
+               for d in DENSITIES],
+        "p2": [_body(build_html(R, 0, d, only=2)) for d in DENSITIES],
+    }
+
+
 # --------------------------------------------------------------------------- PDF
 def _browser() -> str:
     """Chrome/Chromium/Edge: CHROME_PATH if set, else the usual Windows paths, else PATH."""
